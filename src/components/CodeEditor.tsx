@@ -45,55 +45,38 @@ const CodeEditor = () => {
 
     setLoading(true);
     try {
-      // In a real app, this would call your backend API
-      // For demo purposes, we'll simulate a response
+      // Parse dependencies
       const deps = dependencies.split(",").map(dep => dep.trim()).filter(dep => dep);
       
-      // Simulate API call delay
-      await new Promise(resolve => setTimeout(resolve, 1500));
-
-      // Simulate stdout
-      let stdout = "Running code in Python 3.11 container...\n";
-      
-      if (code.includes("print")) {
-        const printStatements = code.match(/print\((.*?)\)/g) || [];
-        printStatements.forEach(stmt => {
-          const content = stmt.match(/print\((.*?)\)/)?.[1] || "";
-          let output = "";
-          
-          // Simple evaluation of basic print statements
-          if (content.startsWith('"') || content.startsWith("'")) {
-            output = content.slice(1, -1);
-          } else if (content.startsWith("f")) {
-            // Very basic f-string simulation
-            output = content.slice(2, -1);
-            // Replace {name} with "World" for our sample
-            output = output.replace("{name}", "World");
-          } else if (content === "sys.version") {
-            output = "3.11.4 (main, Jul 5 2023, 16:04:27) [GCC 11.2.0]";
-          }
-          
-          stdout += output + "\n";
-        });
-      }
-      
-      // If dependencies were specified, show them
-      if (deps.length > 0) {
-        stdout += `\nInstalled dependencies: ${deps.join(", ")}\n`;
-      }
-
-      setResult({
-        stdout,
-        stderr: "",
-        exitCode: 0
+      // Call the actual backend API
+      const response = await fetch("/api/execute", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          code,
+          dependencies: deps
+        }),
       });
 
-      toast.success("Code executed successfully");
+      if (!response.ok) {
+        throw new Error(`Server returned ${response.status}: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      setResult(data);
+
+      if (data.exitCode === 0) {
+        toast.success("Code executed successfully");
+      } else {
+        toast.error("Code execution failed");
+      }
     } catch (error) {
       console.error("Error executing code:", error);
       setResult({
         stdout: "",
-        stderr: "An error occurred while executing the code",
+        stderr: error instanceof Error ? error.message : "An unexpected error occurred",
         exitCode: 1
       });
       toast.error("Failed to execute code");
@@ -173,7 +156,7 @@ const CodeEditor = () => {
       </div>
 
       <div className="text-xs text-muted-foreground mt-2">
-        Note: This is a frontend demo. In a real application, code would be executed securely in a Docker container on the server.
+        Code is executed securely in an isolated Docker container on the server.
       </div>
     </div>
   );
