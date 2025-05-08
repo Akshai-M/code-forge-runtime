@@ -21,6 +21,8 @@ if (!fs.existsSync(tempDir)) {
 app.post('/api/execute', async (req, res) => {
   const { code, dependencies = [] } = req.body;
   
+  console.log('Received code execution request');
+  
   if (!code) {
     return res.status(400).json({ 
       stdout: '',
@@ -47,6 +49,9 @@ app.post('/api/execute', async (req, res) => {
       fs.writeFileSync(requirementsPath, dependencies.join('\n'));
     }
     
+    console.log(`Executing code in directory: ${executionDir}`);
+    console.log(`Dependencies: ${dependencies.join(', ') || 'none'}`);
+    
     // Build docker command - handle both with and without dependencies
     let dockerCmd;
     if (dependencies.length > 0) {
@@ -54,6 +59,8 @@ app.post('/api/execute', async (req, res) => {
     } else {
       dockerCmd = `docker run --rm -v "${executionDir}:/app" --network none python:3.11 python /app/main.py`;
     }
+    
+    console.log(`Running command: ${dockerCmd}`);
     
     // Execute docker command
     exec(dockerCmd, { timeout: 30000 }, (error, stdout, stderr) => {
@@ -66,6 +73,8 @@ app.post('/api/execute', async (req, res) => {
       
       // Determine exit code
       const exitCode = error ? (error.code || 1) : 0;
+      
+      console.log(`Execution complete with exit code: ${exitCode}`);
       
       res.json({
         stdout,
@@ -90,6 +99,10 @@ app.post('/api/execute', async (req, res) => {
       exitCode: 1
     });
   }
+});
+
+app.get('/api/status', (req, res) => {
+  res.json({ status: 'ok', message: 'Backend server is running' });
 });
 
 app.listen(PORT, () => {

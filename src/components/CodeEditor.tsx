@@ -48,7 +48,9 @@ const CodeEditor = () => {
       // Parse dependencies
       const deps = dependencies.split(",").map(dep => dep.trim()).filter(dep => dep);
       
-      // Call the actual backend API
+      console.log("Sending request to /api/execute...");
+      
+      // Call the backend API
       const response = await fetch("/api/execute", {
         method: "POST",
         headers: {
@@ -61,7 +63,8 @@ const CodeEditor = () => {
       });
 
       if (!response.ok) {
-        throw new Error(`Server returned ${response.status}: ${response.statusText}`);
+        const errorText = await response.text().catch(() => "Unknown error");
+        throw new Error(`Server returned ${response.status}: ${errorText}`);
       }
 
       const data = await response.json();
@@ -70,7 +73,7 @@ const CodeEditor = () => {
       if (data.exitCode === 0) {
         toast.success("Code executed successfully");
       } else {
-        toast.error("Code execution failed");
+        toast.error("Code execution failed with errors");
       }
     } catch (error) {
       console.error("Error executing code:", error);
@@ -79,7 +82,7 @@ const CodeEditor = () => {
         stderr: error instanceof Error ? error.message : "An unexpected error occurred",
         exitCode: 1
       });
-      toast.error("Failed to execute code");
+      toast.error("Failed to connect to backend server");
     } finally {
       setLoading(false);
     }
@@ -136,13 +139,18 @@ const CodeEditor = () => {
 
         <div className="flex flex-col">
           <div className="text-sm font-medium mb-1">Output</div>
-          <div className="bg-card border border-border output-container flex-grow">
-            {result ? (
+          <div className="bg-card border border-border output-container flex-grow p-4 overflow-auto font-mono text-sm">
+            {loading ? (
+              <div className="flex items-center justify-center h-full text-muted-foreground">
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Running code...
+              </div>
+            ) : result ? (
               <>
-                {result.stdout && <pre>{result.stdout}</pre>}
-                {result.stderr && <pre className="output-error">{result.stderr}</pre>}
+                {result.stdout && <pre className="whitespace-pre-wrap mb-2">{result.stdout}</pre>}
+                {result.stderr && <pre className="whitespace-pre-wrap text-destructive mb-2">{result.stderr}</pre>}
                 <Separator className="my-2" />
-                <div className={result.exitCode === 0 ? "output-success" : "output-error"}>
+                <div className={result.exitCode === 0 ? "text-green-500" : "text-destructive"}>
                   Exit code: {result.exitCode}
                 </div>
               </>
